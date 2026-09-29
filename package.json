@@ -1,0 +1,54 @@
+{
+  "name": "countdown-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Countdowns and reminders for your Discord server.",
+  "author": "Burak Ozdemir",
+  "homepage": "https://onlinealarmkur.com/countdown/en/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/onlinealarmkur/discord-countdown-bot.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=24.21.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "dev": "node --import tsx --watch src/index.ts",
+    "start": "node dist/src/index.js",
+    "doctor": "npm run build --silent && node dist/src/doctor.js",
+    "verify": "npm run check && npm test && npm run build && node dist/src/doctor.js --code-only",
+    "commands:print": "npm run build --silent && node dist/src/register-commands.js --print",
+    "commands:register": "npm run build --silent && node dist/src/register-commands.js",
+    "db:backup": "npm run build --silent && node dist/src/backup-database.js",
+    "data:delete-user": "npm run build --silent && node dist/src/delete-user-data.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "capacity:benchmark": "node --expose-gc scripts/capacity-benchmark.mjs"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.19.2",
+    "@stablelib/xchacha20poly1305": "^2.0.1",
+    "discord.js": "^14.27.0",
+    "dotenv": "^18.0.4",
+    "luxon": "^3.7.2",
+    "opusscript": "0.1.1",
+    "prism-media": "^1.3.5"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.7.5",
+    "@types/node": "^24.19.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.2"
+  },
+  "license": "MIT",
+  "packageManager": "npm@12.1.0",
+  "overrides": {
+    "prism-media": {
+      "opusscript": "$opusscript"
+    }
+  }
+}
