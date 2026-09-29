@@ -1,0 +1,127 @@
+# Installed dependencies and generated output. Keep package-lock.json tracked.
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.cache/
+
+# Runtime state and private configuration. Only the empty template is public.
+data/
+backups/
+.env
+.env.*
+*.env
+*.env.*
+.envrc
+.direnv/
+# Only the reviewed root template is public.
+!/.env.example
+secrets/
+.secrets/
+.npmrc
+.netrc
+.git-credentials
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.db.partial
+*.db.partial-wal
+*.db.partial-shm
+*.db.partial-journal
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3-journal
+*.sqlite.partial*
+*.sqlite3.partial*
+# Shared-host OAuth state remains private even when encrypted.
+slack-installations.enc
+.ssh/
+id_ed25519
+id_rsa
+id_ecdsa
+id_dsa
+*.pem
+*.key
+*.p12
+*.pfx
+*.ppk
+*.keystore
+*.jks
+age-key*.txt
+age-identity*.txt
+
+# Deployment bundles and backup exports can contain runtime state or secrets.
+/countdown-backups/
+/snapshots/
+*.age
+*.tar
+*.tar.gz
+*.tar.xz
+*.tar.bz2
+*.tgz
+*.zip
+*.sql.gz
+
+# Logs, local reports, editor backups, and temporary files.
+logs/
+*.log
+# Node diagnostic reports and memory dumps can contain environment credentials.
+report.[0-9]*.json
+*.heapsnapshot
+*.heapprofile
+*.cpuprofile
+/core
+/core.[0-9]*
+*.bak
+*.tmp
+*.swp
+*.swo
+*~
+tmp/
+temp/
+.tmp/
+.idea/
+.vscode/
+
+# Optional artwork-generation environments.
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Private operator documents, deployment tools, drafts and artwork sources.
+/deploy/
+/docs/
+/publishing/
+/legal/
+/site/
+/private/
+/assets/generate-icon.py
+/assets/icon/
+/assets/README.md
+# Local planning/tool state.
+/AGENTS.md
+/CLAUDE.md
+/GEMINI.md
+/.agents/
+/.cursor/
+/.continue/
+/.windsurf/
+/sandbox/
+/plans/
+/advisor-plans/
+/.codex/
+/.claude/
+/.railway/
+
+# Operating-system metadata.
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
