@@ -50,8 +50,10 @@ client.once(Events.ClientReady, (readyClient) => {
   // outage. Anything else was removed while the bot was offline.
   const departed = database.listGuildIds().filter((guildId) => !readyClient.guilds.cache.has(guildId));
   for (const guildId of departed) database.deleteGuildData(guildId);
+  const refreshedCards = database.queueFixedFinishCardRefresh();
   console.log(`Countdown Bot is ready as ${readyClient.user.tag} in ${readyClient.guilds.cache.size} servers.`);
   if (departed.length > 0) console.log(`Deleted countdown data for ${departed.length} servers that removed the bot while it was offline.`);
+  if (refreshedCards > 0) console.log(`Queued ${refreshedCards} completed cards for the one-time fixed finish-time refresh; no alerts are replayed.`);
   scheduler.start();
 });
 

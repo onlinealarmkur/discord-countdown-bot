@@ -5,6 +5,7 @@ const lifecycle = vi.hoisted(() => ({
   drain: vi.fn().mockResolvedValue(undefined),
   guildIds: vi.fn((): string[] => []),
   deleteGuild: vi.fn((_guildId: string) => 0),
+  refreshCards: vi.fn(() => 0),
   clientHandlers: new Map<string, (...args: any[]) => void>(),
 }));
 
@@ -31,6 +32,7 @@ vi.mock("../src/database.js", () => ({ CountdownDatabase: class {
   bindApplication(applicationId: string) { lifecycle.bind(applicationId); }
   listGuildIds() { return lifecycle.guildIds(); }
   deleteGuildData(guildId: string) { return lifecycle.deleteGuild(guildId); }
+  queueFixedFinishCardRefresh() { return lifecycle.refreshCards(); }
 } }));
 vi.mock("../src/services/scheduler.js", () => ({ CountdownScheduler: class {
   start() { lifecycle.start(); }
@@ -57,6 +59,7 @@ beforeEach(() => {
   }
   lifecycle.drain.mockReset().mockResolvedValue(undefined);
   lifecycle.guildIds.mockReset().mockReturnValue([]);
+  lifecycle.refreshCards.mockReset().mockReturnValue(0);
   vi.spyOn(process, "once").mockImplementation((event, listener) => {
     processHandlers.set(event, listener); return process;
   });
@@ -110,14 +113,20 @@ describe("real entrypoint shutdown ordering", () => {
 });
 
 describe("server removal", () => {
-  it("purges servers removed while offline, then starts the scheduler", async () => {
+  it("purges departed servers before refreshing old cards and starting the scheduler", async () => {
     lifecycle.guildIds.mockReturnValue(["kept", "departed"]);
+    lifecycle.refreshCards.mockReturnValue(3);
     await startEntrypoint();
+    expect(lifecycle.refreshCards).not.toHaveBeenCalled();
     lifecycle.clientHandlers.get("ready")!({
       user: { tag: "Countdown Bot#0001" },
       guilds: { cache: new Map([["kept", {}], ["outage", { available: false }]]) },
     });
     expect(lifecycle.deleteGuild.mock.calls).toEqual([["departed"]]);
+    expect(lifecycle.refreshCards).toHaveBeenCalledOnce();
+    expect(lifecycle.deleteGuild.mock.invocationCallOrder[0]).toBeLessThan(lifecycle.refreshCards.mock.invocationCallOrder[0]!);
+    expect(lifecycle.refreshCards.mock.invocationCallOrder[0]).toBeLessThan(lifecycle.start.mock.invocationCallOrder[0]!);
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining("Queued 3 completed cards"));
     expect(lifecycle.start).toHaveBeenCalledOnce();
   });
 

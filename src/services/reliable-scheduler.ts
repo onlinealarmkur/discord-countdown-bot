@@ -3,6 +3,7 @@ import type { Client, Guild, MessageEditOptions, TextBasedChannel } from "discor
 import type { AppConfig } from "../config.js";
 import {
   CountdownDatabase,
+  TERMINAL_RETENTION_MS,
   type ClaimedSubscriberBatch,
 } from "../database.js";
 import { formatDuration } from "../domain/duration.js";
@@ -14,7 +15,6 @@ import { allowedMentions } from "../discord/mentions.js";
 import type { StoredCountdown } from "../types.js";
 import { MAX_VOICE_ALERT_LATENESS_MS, VoiceAlertQueue } from "./voice.js";
 
-const THIRTY_DAYS_MS = 30 * 86_400_000;
 const ONE_DAY_MS = 86_400_000;
 const CLOCK_STEP_TOLERANCE_MS = 2_000;
 const TEN_MINUTES_MS = 600_000;
@@ -273,7 +273,7 @@ export class CountdownScheduler {
     await phase(() => {
       if (nowMs - this.lastPruneAt >= 3_600_000) {
         this.database.pruneTerminal(
-          nowMs - THIRTY_DAYS_MS,
+          nowMs - TERMINAL_RETENTION_MS,
           nowMs - TEN_MINUTES_MS,
           nowMs - ONE_DAY_MS,
         );
@@ -639,7 +639,7 @@ export class CountdownScheduler {
       const message = {
         edit: (value: unknown) => channel.messages.edit(countdown.messageId!, value as MessageEditOptions),
       };
-      await message.edit({ content: null, ...buildCountdownCard(countdown, this.config.siteBaseUrl) });
+      await message.edit({ content: null, allowedMentions: { parse: [] }, ...buildCountdownCard(countdown, this.config.siteBaseUrl) });
       const deliveryAtMs = elapsedDeliveryTimeMs(nowMs, deliveryStartedAtMs);
       if (!this.database.finishCardUpdate(countdown.id, lease.claimAtMs(), deliveryAtMs)) {
         await this.reconcileCardMessage(message, countdown.id, countdown.version, deliveryAtMs);
@@ -648,9 +648,10 @@ export class CountdownScheduler {
       const failureAtMs = elapsedDeliveryTimeMs(nowMs, deliveryStartedAtMs);
       const attemptCount = this.database.getCardUpdateAttemptCount(countdown.id);
       // A deleted card or a channel the bot lost access to never recovers by retrying.
+      // Card-only refreshes may target old countdowns. Bound retries by attempts,
+      // not the original deadline; the 24-hour alert deadline still applies above.
       const abandon = isPermanentChannelError(error) || isUnknownDiscordResource(error) ||
-        attemptCount + 1 >= MAX_AUXILIARY_ATTEMPTS ||
-        failureAtMs - (countdown.endsAtMs ?? failureAtMs) >= MAX_COMPLETION_RETRY_AGE_MS;
+        attemptCount + 1 >= MAX_AUXILIARY_ATTEMPTS;
       const retryScheduled = this.database.retryCardUpdate(
         countdown.id,
         lease.claimAtMs(),

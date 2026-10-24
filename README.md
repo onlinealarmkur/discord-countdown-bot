@@ -75,6 +75,8 @@ Remove `--dry-run` to apply a data deletion; use `--guild <server-id>` instead o
 
 Automated verification needs no Discord credentials. Confirm command responses, completion messages, direct reminders, and voice playback separately in your test server.
 
+On the first startup with the fixed finish-time display, the bot automatically queues a one-time refresh of completed cards still within its 30-day data retention window. It edits the existing cards, preserves their original finish times, and does not replay channel, DM, or voice alerts. Deleted or inaccessible messages are skipped; cards whose records were already purged cannot be refreshed. The queue survives restarts and uses bounded retries for temporary Discord failures.
+
 The deployment command uses the operator checkout's private `deploy/` tools and a Git-ignored `deploy.config.json` containing `{"serverIp":"YOUR_SERVER_IPV4"}`. It uses the existing `~/.ssh/digitalocean` key and prompts for sudo in your terminal; no password is saved. A source-only clone does not include these operational tools. Successful deployment keeps one active runtime, removes inactive code and the upload folder, and preserves persistent data and credentials.
 
 ## Contributing and security

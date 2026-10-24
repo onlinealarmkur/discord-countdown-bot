@@ -6,6 +6,7 @@ import type { DueReminder, Sound, StoredCountdown } from "./types.js";
 
 const DELIVERY_LEASE_MS = 120_000;
 const PICKER_UPDATE_LEASE_MS = 30_000;
+export const TERMINAL_RETENTION_MS = 30 * 86_400_000;
 
 export interface ClaimedReminderDelivery {
   countdown: StoredCountdown;
@@ -356,6 +357,36 @@ export class CountdownDatabase {
     const row = this.database.prepare("SELECT value FROM app_meta WHERE key = 'application_id'").get() as SqlRow;
     if (String(row.value) !== applicationId) {
       throw new Error("DATABASE_PATH belongs to a different Discord application. Use a separate database for each bot. Nothing was changed.");
+    }
+  }
+
+  /** Refresh retained historical cards once, without replaying any alerts. */
+  queueFixedFinishCardRefresh(nowMs = Date.now()): number {
+    this.database.exec("BEGIN IMMEDIATE");
+    try {
+      const marker = this.database.prepare(`
+        INSERT OR IGNORE INTO app_meta (key, value)
+        VALUES ('completed_card_fixed_finish_v1', ?)
+      `).run(String(nowMs));
+      let queued = 0;
+      if (Number(marker.changes) === 1) {
+        // Pending card writes already use the new renderer. Leave their retry
+        // schedule/lease intact, and never revive records outside retention.
+        // In particular, updated_at_ms is the original completion time.
+        queued = Number(this.database.prepare(`
+          UPDATE countdowns
+          SET card_updated_at_ms = NULL, card_update_attempt_count = 0,
+            card_update_next_attempt_at_ms = ?
+          WHERE state = 'completed' AND armed_at_ms IS NOT NULL
+            AND message_id IS NOT NULL AND card_updated_at_ms IS NOT NULL
+            AND updated_at_ms >= ?
+        `).run(nowMs, nowMs - TERMINAL_RETENTION_MS).changes);
+      }
+      this.database.exec("COMMIT");
+      return queued;
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+      throw error;
     }
   }
 
