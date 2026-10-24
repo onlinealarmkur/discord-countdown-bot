@@ -14,6 +14,17 @@ describe("buildCountdownCard", () => {
     expect(url).not.toContain("/timer/");
   });
 
+  it.each(["relative", "event"] as const)("shows a fixed finish time and date for a completed %s countdown", (kind) => {
+    const card = buildCountdownCard(
+      countdown({ kind, state: "completed", remainingMs: 0, updatedAtMs: 605_789 }),
+      "https://onlinealarmkur.com",
+    );
+    // Use the recorded completion time, not the creation time or scheduled deadline.
+    expect(card.embeds[0]?.data.description).toBe("Finished at <t:605:t> • <t:605:d>");
+    expect(card.embeds[0]?.data.description).not.toContain(":R>");
+    expect(card.embeds[0]?.data.fields?.find(({ name }) => name === "Status")?.value).toBe("Time's up");
+  });
+
   it("gives the live button the website's encoded deadline, timezone and title", () => {
     const endsAtMs = Date.UTC(2026, 8, 27, 12, 33, 59);
     const card = buildCountdownCard(

@@ -29,7 +29,10 @@ function countdownDescription(countdown: StoredCountdown): string {
     return `Ends <t:${unix}:R> • <t:${unix}:F>`;
   }
   if (countdown.state === "paused") return `${formatDuration(countdown.remainingMs)} remaining`;
-  if (countdown.state === "completed") return `Finished <t:${Math.floor(countdown.updatedAtMs / 1_000)}:R>`;
+  if (countdown.state === "completed") {
+    const unix = Math.floor(countdown.updatedAtMs / 1_000);
+    return `Finished at <t:${unix}:t> • <t:${unix}:d>`;
+  }
   return `Stopped <t:${Math.floor(countdown.updatedAtMs / 1_000)}:R>`;
 }
 
