@@ -64,6 +64,8 @@ After testing, clear `DISCORD_GUILD_ID` and run `npm run commands:register -- --
 | Command | Purpose |
 | --- | --- |
 | `npm run verify` | Typecheck, automated tests, build, and offline diagnostics |
+| `npm run deploy` | Verify, upload, update and clean the configured DigitalOcean bot (operator checkout) |
+| `npm run deploy:plan` | Preview deployment without making changes or connecting to the server |
 | `npm run commands:print` | Print command definitions without contacting Discord |
 | `npm run db:backup` | Create an integrity-checked SQLite backup |
 | `npm run data:delete-user -- <user-id> --dry-run` | Preview deletion of a user's stored data |
@@ -72,6 +74,8 @@ After testing, clear `DISCORD_GUILD_ID` and run `npm run commands:register -- --
 Remove `--dry-run` to apply a data deletion; use `--guild <server-id>` instead of the user ID for a server. Stop the bot while applying deletions, then restart it. Database backups can run while the bot is running.
 
 Automated verification needs no Discord credentials. Confirm command responses, completion messages, direct reminders, and voice playback separately in your test server.
+
+The deployment command uses the operator checkout's private `deploy/` tools and a Git-ignored `deploy.config.json` containing `{"serverIp":"YOUR_SERVER_IPV4"}`. It uses the existing `~/.ssh/digitalocean` key and prompts for sudo in your terminal; no password is saved. A source-only clone does not include these operational tools. Successful deployment keeps one active runtime, removes inactive code and the upload folder, and preserves persistent data and credentials.
 
 ## Contributing and security
 

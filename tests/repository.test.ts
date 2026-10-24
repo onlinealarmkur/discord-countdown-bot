@@ -39,7 +39,7 @@ describe("public repository hygiene", () => {
       "plans/review.md", "advisor-plans/review.md", ".codex/local.json", ".DS_Store",
       "AGENTS.md", "CLAUDE.md", "GEMINI.md", ".agents/local.md", ".cursor/settings.json",
       ".continue/config.json", ".windsurf/rules.md", ".claude/local.json", "sandbox/notes.txt",
-      "deploy/countdown-bot.service", "deploy/digitalocean-setup.sh", "docs/discord-launch.md",
+      "deploy/countdown-bot.service", "deploy/digitalocean-setup.sh", "deploy.config.json", "docs/discord-launch.md",
       "publishing/README.md", "publishing/media/banner.png", "publishing/slack-next-steps.txt",
       "publishing/privacy-policy-additions-en-tr.txt", "legal/privacy.md", "site/icon.png",
       "private/server-notes.txt", "assets/generate-icon.py", "assets/icon/tile.py", "assets/README.md",

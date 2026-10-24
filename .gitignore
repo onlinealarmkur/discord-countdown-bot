@@ -97,6 +97,7 @@ venv/
 
 # Private operator documents, deployment tools, drafts and artwork sources.
 /deploy/
+/deploy.config.json
 /docs/
 /publishing/
 /legal/
