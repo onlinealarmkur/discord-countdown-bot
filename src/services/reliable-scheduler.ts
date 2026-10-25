@@ -650,8 +650,8 @@ export class CountdownScheduler {
       // A deleted card or a channel the bot lost access to never recovers by retrying.
       // Card-only refreshes may target old countdowns. Bound retries by attempts,
       // not the original deadline; the 24-hour alert deadline still applies above.
-      const abandon = isPermanentChannelError(error) || isUnknownDiscordResource(error) ||
-        attemptCount + 1 >= MAX_AUXILIARY_ATTEMPTS;
+      const unavailable = isPermanentChannelError(error) || isUnknownDiscordResource(error);
+      const abandon = unavailable || attemptCount + 1 >= MAX_AUXILIARY_ATTEMPTS;
       const retryScheduled = this.database.retryCardUpdate(
         countdown.id,
         lease.claimAtMs(),
@@ -659,7 +659,11 @@ export class CountdownScheduler {
         abandon ? failureAtMs : null,
       );
       if (!retryScheduled) this.database.scheduleCardSynchronization(countdown.id, failureAtMs);
-      console.error("Failed to synchronize countdown card", { countdownId: countdown.id, error });
+      if (unavailable) {
+        console.info(`Skipped countdown card ${countdown.id}: deleted or inaccessible (Discord ${discordErrorCode(error)}).`);
+      } else {
+        console.error("Failed to synchronize countdown card", { countdownId: countdown.id, error });
+      }
     } finally {
       lease.stop();
     }

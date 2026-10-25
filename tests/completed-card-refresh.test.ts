@@ -58,13 +58,14 @@ function service(db: CountdownDatabase, edit = vi.fn().mockResolvedValue({})) {
   const users = vi.fn();
   const guilds = vi.fn();
   const voice = vi.fn().mockResolvedValue(undefined);
+  const fetchChannel = vi.fn().mockResolvedValue({ isTextBased: () => true, send, messages: { edit } });
   const client = {
-    channels: { fetch: vi.fn().mockResolvedValue({ isTextBased: () => true, send, messages: { edit } }) },
+    channels: { fetch: fetchChannel },
     users: { fetch: users },
     guilds: { fetch: guilds },
   } as unknown as Client;
   const scheduler = new CountdownScheduler(client, db, { siteBaseUrl: "https://example.test" }, new VoiceAlertQueue(voice));
-  return { scheduler, edit, send, users, guilds, voice };
+  return { scheduler, edit, fetchChannel, send, users, guilds, voice };
 }
 
 describe("one-time fixed finish-time card refresh", () => {
@@ -172,8 +173,10 @@ describe("one-time fixed finish-time card refresh", () => {
     const db = database();
     completed(db);
     db.queueFixedFinishCardRefresh(REFRESH_AT);
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const app = service(db, vi.fn().mockRejectedValueOnce(new Error("temporary outage")).mockResolvedValue({}));
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const infoLog = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const error = new Error("temporary outage");
+    const app = service(db, vi.fn().mockRejectedValueOnce(error).mockResolvedValue({}));
     await app.scheduler.tick(REFRESH_AT);
     await app.scheduler.tick(REFRESH_AT + 29_999);
     expect(app.edit).toHaveBeenCalledOnce();
@@ -182,28 +185,48 @@ describe("one-time fixed finish-time card refresh", () => {
     expect(db.getPendingCardUpdateIds(REFRESH_AT + 60_000)).toEqual([]);
     expect(app.send).not.toHaveBeenCalled();
     expect(app.users).not.toHaveBeenCalled();
+    expect(infoLog).not.toHaveBeenCalled();
+    expect(errorLog).toHaveBeenCalledExactlyOnceWith("Failed to synchronize countdown card", {
+      countdownId: "countdown-1", error,
+    });
   });
 
-  it.each([10003, 10008, 50001, 50013])("skips a missing or inaccessible card (Discord %s) without sending a replacement", async (code) => {
+  it.each([10003, 10008, 50001, 50013].flatMap((code) =>
+    ["fetch", "edit"].map((stage) => ({ code, stage })),
+  ))("logs one short skip for Discord $code during $stage without retrying or replaying alerts", async ({ code, stage }) => {
     const db = database();
     completed(db);
     db.queueFixedFinishCardRefresh(REFRESH_AT);
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const app = service(db, vi.fn().mockRejectedValue({ code }));
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const infoLog = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const error = Object.assign(new Error("deleted or inaccessible"), {
+      code, requestBody: { json: { content: "must not be logged" } },
+    });
+    const app = service(db);
+    (stage === "fetch" ? app.fetchChannel : app.edit).mockRejectedValue(error);
     await app.scheduler.tick(REFRESH_AT);
     await app.scheduler.tick(REFRESH_AT + 60_000);
-    expect(app.edit).toHaveBeenCalledOnce();
+    expect(app.fetchChannel).toHaveBeenCalledOnce();
+    expect(app.edit).toHaveBeenCalledTimes(stage === "edit" ? 1 : 0);
+    expect(infoLog).toHaveBeenCalledExactlyOnceWith(
+      `Skipped countdown card countdown-1: deleted or inaccessible (Discord ${code}).`,
+    );
+    expect(errorLog).not.toHaveBeenCalled();
     expect(db.getPendingCardUpdateIds(REFRESH_AT + 60_000)).toEqual([]);
     expect(app.send).not.toHaveBeenCalled();
     expect(app.users).not.toHaveBeenCalled();
+    expect(app.guilds).not.toHaveBeenCalled();
+    expect(app.voice).not.toHaveBeenCalled();
   });
 
   it("abandons persistent transient failures after eight attempts", async () => {
     const db = database();
     completed(db);
     db.queueFixedFinishCardRefresh(REFRESH_AT);
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const app = service(db, vi.fn().mockRejectedValue(new Error("outage")));
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const infoLog = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const error = new Error("outage");
+    const app = service(db, vi.fn().mockRejectedValue(error));
     let tickAt = REFRESH_AT;
     for (let attempt = 0; attempt < 8; attempt++) {
       await app.scheduler.tick(tickAt);
@@ -214,5 +237,10 @@ describe("one-time fixed finish-time card refresh", () => {
     expect(db.getPendingCardUpdateIds(tickAt)).toEqual([]);
     expect(app.send).not.toHaveBeenCalled();
     expect(app.users).not.toHaveBeenCalled();
+    expect(infoLog).not.toHaveBeenCalled();
+    expect(errorLog).toHaveBeenCalledTimes(8);
+    expect(errorLog).toHaveBeenLastCalledWith("Failed to synchronize countdown card", {
+      countdownId: "countdown-1", error,
+    });
   });
 });
