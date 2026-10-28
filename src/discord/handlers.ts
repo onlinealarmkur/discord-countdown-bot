@@ -47,6 +47,7 @@ import { buildOnlineCountdownLandingUrl } from "../domain/links.js";
 import { unicodeGraphemes } from "../domain/unicode.js";
 import type { ReminderMode, Sound, StoredCountdown } from "../types.js";
 import { buildCountdownCard } from "./card.js";
+import { createCountdownVisibilityCheck } from "./countdown-access.js";
 import { literalDiscordText, singleLineDiscordText } from "./literal-text.js";
 
 const MAX_SUBSCRIBERS_PER_COUNTDOWN = 500;
@@ -346,7 +347,33 @@ async function handleAutocomplete(
     const query = String(focused.value).trim().toLowerCase();
     const isAdministrator = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) === true;
     const channelAccess = new Map<string, Promise<boolean>>();
+    const subscriberAccess = new Map<string, Promise<boolean>>();
+    const currentVisibility = createCountdownVisibilityCheck(interaction.client, interaction.guildId, interaction.user.id);
+    const responseDeadline = Date.now() + 2_000;
+    // Autocomplete cannot be deferred. Slow lookups fail closed within its
+    // response budget, never falling back to a stored subscription or cache.
+    const withinBudget = (verification: Promise<boolean>): Promise<boolean> => new Promise((resolve) => {
+      const remaining = responseDeadline - Date.now();
+      if (remaining <= 0) { resolve(false); return; }
+      const timeout = setTimeout(() => resolve(false), remaining);
+      void verification.then((allowed) => {
+        clearTimeout(timeout);
+        resolve(allowed);
+      }, () => {
+        clearTimeout(timeout);
+        resolve(false);
+      });
+    });
+    const canViewSubscribedChannel = (channelId: string): Promise<boolean> => {
+      let access = subscriberAccess.get(channelId);
+      if (!access) {
+        access = withinBudget(currentVisibility(channelId));
+        subscriberAccess.set(channelId, access);
+      }
+      return access;
+    };
     const canManageChannel = (channelId: string): Promise<boolean> => {
+      if (Date.now() >= responseDeadline) return Promise.resolve(false);
       let access = channelAccess.get(channelId);
       if (!access) {
         const verification = hasCountdownChannelPermissionAsync(
@@ -354,18 +381,7 @@ async function handleAutocomplete(
           interaction.user.id,
           PermissionFlagsBits.ManageMessages,
         );
-        // Autocomplete cannot be deferred. A slow permission lookup must fail
-        // closed within its response budget, never fall back to stale access.
-        access = new Promise<boolean>((resolve) => {
-          const timeout = setTimeout(() => resolve(false), 2_000);
-          void verification.then((allowed) => {
-            clearTimeout(timeout);
-            resolve(allowed);
-          }, () => {
-            clearTimeout(timeout);
-            resolve(false);
-          });
-        });
+        access = withinBudget(verification);
         channelAccess.set(channelId, access);
       }
       return access;
@@ -381,8 +397,9 @@ async function handleAutocomplete(
     const permitted = await Promise.all(matches.map(async (countdown) => ({
       countdown,
       allowed: isAdministrator || countdown.creatorId === interaction.user.id ||
-        database.isSubscribed(countdown.id, interaction.user.id) ||
-        await canManageChannel(countdown.channelId),
+        (database.isSubscribed(countdown.id, interaction.user.id)
+          ? await canViewSubscribedChannel(countdown.channelId)
+          : await canManageChannel(countdown.channelId)),
     })));
     const values = permitted
       .filter(({ allowed }) => allowed)

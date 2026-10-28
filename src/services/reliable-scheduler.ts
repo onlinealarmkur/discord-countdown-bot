@@ -11,6 +11,7 @@ import { buildCountdownDestinationUrl } from "../domain/links.js";
 import { buildCountdownCard } from "../discord/card.js";
 import { deliveryNonce } from "../discord/delivery-nonce.js";
 import { literalDiscordText } from "../discord/literal-text.js";
+import { createCountdownVisibilityCheck } from "../discord/countdown-access.js";
 import { allowedMentions } from "../discord/mentions.js";
 import type { StoredCountdown } from "../types.js";
 import { MAX_VOICE_ALERT_LATENESS_MS, VoiceAlertQueue } from "./voice.js";
@@ -798,6 +799,11 @@ export class CountdownScheduler {
     try {
       if (!canSend()) return "retry";
       const user = await this.client.users.fetch(userId);
+      // Creator fallback is based on ownership, including when a card/channel
+      // disappears. A non-owner's old subscription is not continuing access.
+      if (userId !== countdown.creatorId && !await createCountdownVisibilityCheck(
+        this.client, countdown.guildId, userId,
+      )(countdown.channelId)) return "retry";
       if (!canSend()) return "retry";
       const sent = await user.send({
         content: typeof content === "function" ? content() : content,

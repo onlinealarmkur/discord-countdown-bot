@@ -1,6 +1,6 @@
 # Security
 
-Report vulnerabilities privately to [burak@onlinealarmkur.com.tr](mailto:burak@onlinealarmkur.com.tr), or use GitHub's private vulnerability reporting if enabled for this repository.
+Report vulnerabilities through [GitHub's private vulnerability reporting](https://github.com/onlinealarmkur/discord-countdown-bot/security/advisories/new) when it is available for this repository. If it is unavailable, open an issue asking for a private reporting channel without including vulnerability details.
 
 Do not include credentials, environment files, databases, or member details in public issues.
 

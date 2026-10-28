@@ -1,4 +1,4 @@
-import type { Client } from "discord.js";
+import { PermissionFlagsBits, PermissionsBitField, type Client } from "discord.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CountdownDatabase } from "../src/database.js";
 import { CountdownScheduler } from "../src/services/reliable-scheduler.js";
@@ -15,8 +15,16 @@ function deferred() {
 function app(db: CountdownDatabase, send: (payload: any) => Promise<unknown>) {
   const channel = { isTextBased: () => true, send,
     messages: { edit: vi.fn().mockResolvedValue({}), fetch: vi.fn().mockResolvedValue({ edit: vi.fn().mockResolvedValue({}) }) } };
+  const visibleChannel = {
+    guildId: "guild-1", isThread: () => false,
+    permissionsFor: () => new PermissionsBitField([PermissionFlagsBits.ViewChannel]),
+  };
+  const guild = {
+    members: { fetch: vi.fn().mockResolvedValue({ id: "subscriber-1" }) },
+    channels: { fetch: vi.fn().mockResolvedValue(visibleChannel) },
+  };
   const client = { channels: { fetch: vi.fn().mockResolvedValue(channel) },
-    users: { fetch: vi.fn() }, guilds: { fetch: vi.fn() } } as unknown as Client;
+    users: { fetch: vi.fn() }, guilds: { fetch: vi.fn().mockResolvedValue(guild) } } as unknown as Client;
   return { service: new CountdownScheduler(client, db, { siteBaseUrl: "https://example.test" }), client };
 }
 

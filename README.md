@@ -9,6 +9,7 @@ Countdowns and reminders for your Discord server.
 - Start a countdown with a duration or an exact date and timezone.
 - Use shared cards with pause, resume, add-one-minute, and cancel controls. Scheduled events keep their fixed deadline.
 - Subscribe to direct reminders and choose custom milestones.
+- Subscriber reminders require current access to the countdown's channel or private thread. Losing access stops those DMs; the creator can still receive fallback alerts if the original channel is unavailable.
 - Add an optional Beep, Bell, or Urgent chime in a voice channel.
 - Restore countdowns after restarts using SQLite.
 - Open the same deadline as an [online countdown](https://onlinealarmkur.com/countdown/en/).

@@ -9,6 +9,12 @@ import { CountdownScheduler } from "../src/services/scheduler.js";
 import { VoiceAlertQueue } from "../src/services/voice.js";
 import { countdown } from "./fixtures.js";
 
+// Queue/lease fixtures assume visibility. The real access checker is exercised
+// with the scheduler in subscriber-access.test.ts, including revoked access.
+vi.mock("../src/discord/countdown-access.js", () => ({
+  createCountdownVisibilityCheck: () => async () => true,
+}));
+
 const openDatabases: CountdownDatabase[] = [];
 
 // Explicit tick timestamps are logical time; keep sub-millisecond retry boundary
