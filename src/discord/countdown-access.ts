@@ -15,7 +15,9 @@ export function createCountdownVisibilityCheck(
     if (existing) return existing;
     const check = (async () => {
       identity ??= (async () => {
-        const guild = await client.guilds.fetch(guildId);
+        // Member roles refer to the guild's role definitions. Refresh those
+        // and ownership too, including while gateway updates are reconnecting.
+        const guild = await client.guilds.fetch({ guild: guildId, force: true });
         // GuildMembers is not enabled. Cached roles/membership cannot authorize
         // a background delivery after the recipient loses channel access.
         const member = await guild.members.fetch({ user: userId, force: true, cache: false });

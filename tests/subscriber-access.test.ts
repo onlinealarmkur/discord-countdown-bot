@@ -69,6 +69,7 @@ describe("fresh subscriber visibility", () => {
     const check = createCountdownVisibilityCheck(api.client, "guild-1", "subscriber-1");
     expect(await Promise.all([check("channel-1"), check("channel-1")])).toEqual([true, true]);
     expect(api.memberFetch).toHaveBeenCalledExactlyOnceWith({ user: "subscriber-1", force: true, cache: false });
+    expect(api.raw.guilds.fetch).toHaveBeenCalledExactlyOnceWith({ guild: "guild-1", force: true });
     expect(api.channelFetch).toHaveBeenCalledExactlyOnceWith("channel-1", { force: true });
     expect(api.channel.permissionsFor).toHaveBeenCalledWith(api.member);
     api.permissions([]);
@@ -130,7 +131,7 @@ describe("fresh subscriber visibility", () => {
 });
 
 describe("Discord SDK cache behavior", () => {
-  it.each(["channel-overwrite", "parent-overwrite", "member-role"])("uses the REST response after revoking %s despite cached access", async (revocation) => {
+  it.each(["channel-overwrite", "parent-overwrite", "member-role", "role-permissions", "guild-ownership"])("uses the REST response after revoking %s despite cached access", async (revocation) => {
     const client = new Client({ intents: [] });
     const guildId = "100000000000000001";
     const userId = "100000000000000002";
@@ -155,11 +156,12 @@ describe("Discord SDK cache behavior", () => {
       } : {}),
     };
     const member = { user: { id: userId, username: "subscriber" }, roles: [roleId], joined_at: "2026-01-01T00:00:00Z" };
+    const guildData = {
+      id: guildId, name: "Test", owner_id: revocation === "guild-ownership" ? userId : "100000000000000099",
+      roles: [role(guildId, 0n), role(roleId, revocation === "guild-ownership" ? 0n : PermissionFlagsBits.ViewChannel | PermissionFlagsBits.ManageMessages)],
+    };
     const responses: Record<string, unknown> = {
-      [`/guilds/${guildId}`]: {
-        id: guildId, name: "Test", owner_id: "100000000000000099",
-        roles: [role(guildId, 0n), role(roleId, PermissionFlagsBits.ViewChannel | PermissionFlagsBits.ManageMessages)],
-      },
+      [`/guilds/${guildId}`]: guildData,
       [`/guilds/${guildId}/members/${userId}`]: member,
       [`/channels/${channelId}`]: channel,
       [`/channels/${parentId}`]: parent,
@@ -180,6 +182,8 @@ describe("Discord SDK cache behavior", () => {
       expect(await createCountdownVisibilityCheck(client, guildId, userId)(channelId)).toBe(true);
 
       if (revocation === "member-role") member.roles = [];
+      else if (revocation === "role-permissions") guildData.roles[1]!.permissions = "0";
+      else if (revocation === "guild-ownership") guildData.owner_id = "100000000000000099";
       else (privateThread ? parent : channel).permission_overwrites = [{
         id: userId, type: 1, allow: "0", deny: String(PermissionFlagsBits.ViewChannel),
       }];
@@ -203,6 +207,12 @@ describe("Discord SDK cache behavior", () => {
       });
       controller.stop();
       expect(respond).toHaveBeenCalledWith([]);
+      if (!cachedChannel?.isTextBased() || !("send" in cachedChannel)) throw new Error("Expected a text fixture channel");
+      vi.spyOn(cachedChannel, "send").mockResolvedValue({} as never);
+      vi.spyOn(cachedChannel.messages, "edit").mockResolvedValue({} as never);
+      const dmSend = vi.spyOn(client.users.cache.get(userId)!, "send").mockResolvedValue({} as never);
+      await new CountdownScheduler(client, db, { siteBaseUrl: "https://example.test" }).tick(601_000);
+      expect(dmSend).not.toHaveBeenCalled();
     } finally {
       await client.destroy();
     }
